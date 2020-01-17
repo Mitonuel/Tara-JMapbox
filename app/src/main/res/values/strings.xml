@@ -1,0 +1,4 @@
+<resources>
+    <string name="mapbox_access_token">pk.eyJ1IjoiY3lyaWxvbGFub2xhbiIsImEiOiJjazVmNGdzOG8yZTh2M2tvZWozcWZpMmhpIn0.VWVf1UprMnBwxj05VHOf0A</string>
+    <string name="app_name">Tara-J</string>
+</resources>
