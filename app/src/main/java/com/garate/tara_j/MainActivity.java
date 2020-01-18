@@ -4,8 +4,21 @@ package com.garate.tara_j;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Bundle;
+
+// classes needed to add a marker
+import com.mapbox.geojson.Feature;
+import com.mapbox.geojson.Point;
+import com.mapbox.mapboxsdk.geometry.LatLng;
+import com.mapbox.mapboxsdk.plugins.annotation.SymbolManager;
+import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
+import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
+
 
 import com.mapbox.android.core.location.LocationEngine;
 import com.mapbox.android.core.location.LocationEngineProvider;
@@ -35,13 +48,15 @@ import android.widget.Toast;
 
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, PermissionsListener {
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, PermissionsListener, MapboxMap.OnMapLongClickListener {
 
     private MapView mapView;
     private MapboxMap mapboxMap;
     private PermissionsManager permissionsManager;
-    private boolean isInTrackingMode;
-    
+    private LocationComponent locationComponent;
+    Point destinationPoint;
+    Point originPoint;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -60,14 +75,44 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mapboxMap.setStyle((Style.MAPBOX_STREETS), new Style.OnStyleLoaded() {
             @Override
             public void onStyleLoaded(@NonNull Style style) {
-
+                SymbolManager symbolManager = new SymbolManager(mapView, mapboxMap, style);
                 // Map is set up and the style has loaded. Now you can add data or make other map adjustments.
                 UiSettings uiSettings = mapboxMap.getUiSettings();
                 uiSettings.setTiltGesturesEnabled(false);
                 enableLocationComponent(style);
+                addDestinationIconSymbolLayer(style);
+                mapboxMap.addOnMapLongClickListener(MainActivity.this);
+
 
             }
         });
+    }
+
+    private void addDestinationIconSymbolLayer(@NonNull Style loadedMapStyle) {
+        loadedMapStyle.addImage("destination-icon-id",
+                BitmapFactory.decodeResource(this.getResources(), R.drawable.mapbox_marker_icon_default));
+        GeoJsonSource geoJsonSource = new GeoJsonSource("destination-source-id");
+        loadedMapStyle.addSource(geoJsonSource);
+        SymbolLayer destinationSymbolLayer = new SymbolLayer("destination-symbol-layer-id", "destination-source-id");
+        destinationSymbolLayer.withProperties(
+                iconImage("destination-icon-id"),
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true)
+        );
+        loadedMapStyle.addLayer(destinationSymbolLayer);
+    }
+
+    @Override
+    public boolean onMapLongClick(@NonNull LatLng point) {
+        destinationPoint = Point.fromLngLat(point.getLongitude(), point.getLatitude());
+        originPoint = Point.fromLngLat(locationComponent.getLastKnownLocation().getLongitude(),
+                locationComponent.getLastKnownLocation().getLatitude());
+
+        GeoJsonSource source = mapboxMap.getStyle().getSourceAs("destination-source-id");
+        if (source != null) {
+            source.setGeoJson(Feature.fromGeometry(destinationPoint));
+        }
+        return true;
     }
 
     @SuppressWarnings( {"MissingPermission"})
@@ -88,7 +133,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             .build();
 
             // Get an instance of the component
-            final LocationComponent locationComponent = mapboxMap.getLocationComponent();
+            locationComponent = mapboxMap.getLocationComponent();
 
             // Activate with options
             locationComponent.activateLocationComponent(locationComponentActivationOptions);
@@ -129,6 +174,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+    //LIFE CYCLE METHODS
     @Override
     public void onStart() {
         super.onStart();
@@ -169,5 +215,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onPointerCaptureChanged(boolean hasCapture) {
+
     }
 }
